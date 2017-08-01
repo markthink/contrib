@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ func TestParseNsSvcLVS(t *testing.T) {
 		"missing namespace":      {"echoheaders:NAT", "", "", "", true},
 		"default forward method": {"default/echoheaders", "default", "echoheaders", "NAT", false},
 		"with forward method":    {"default/echoheaders:NAT", "default", "echoheaders", "NAT", false},
-		"DR as forward method":   {"default/echoheaders:DR", "", "", "", true},
+		"DR as forward method":   {"default/echoheaders:DR", "default", "echoheaders", "DR", false},
 		"invalid forward method": {"default/echoheaders:AJAX", "", "", "", true},
 	}
 

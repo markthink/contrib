@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ type keepalived struct {
 	tmpl       *template.Template
 	cmd        *exec.Cmd
 	ipt        iptables.Interface
+	vrid       int
 }
 
 // WriteCfg creates a new keepalived configuration file.
@@ -72,6 +73,7 @@ func (k *keepalived) WriteCfg(svcs []vip) error {
 	conf["nodes"] = k.neighbors
 	conf["priority"] = k.priority
 	conf["useUnicast"] = k.useUnicast
+	conf["vrid"] = k.vrid
 
 	if glog.V(2) {
 		b, _ := json.Marshal(conf)
@@ -152,7 +154,7 @@ func (k *keepalived) Stop() {
 
 	err = syscall.Kill(k.cmd.Process.Pid, syscall.SIGTERM)
 	if err != nil {
-		fmt.Errorf("error stopping keepalived: %v", err)
+		glog.Errorf("error stopping keepalived: %v", err)
 	}
 }
 

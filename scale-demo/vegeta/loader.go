@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ func main() {
 
 	host := serviceIP
 	if *port != 80 {
-		host = fmt.Sprintf("%s:%d", host, port)
+		host = fmt.Sprintf("%s:%d", host, *port)
 	}
 	var targets []vegeta.Target
 	for _, path := range strings.Split(*paths, ",") {

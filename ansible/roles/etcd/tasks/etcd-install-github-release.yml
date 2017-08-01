@@ -11,18 +11,15 @@
 
 - name: Extract tar file
   unarchive:
-    src: "{{ ansible_temp_dir }}/etcd-v{{ etcd_version }}-linux-amd64.tar.gz"
+    src: "{{ ansible_temp_dir }}/etcd-v{{ etcd_version }}-linux-{{ ansible_architecture }}.tar.gz"
     dest: /usr/local
     copy: no
 
 - name: Create symlinks
   file:
-    src: /usr/local/etcd-v{{ etcd_version }}-linux-amd64/{{ item }}
+    src: /usr/local/etcd-v{{ etcd_version }}-linux-{{ ansible_architecture }}/{{ item }}
     dest: /usr/bin/{{ item }}
     state: link
   with_items:
     - etcd
     - etcdctl
-
-- name: Create upstart script
-  copy: src=etcd.upstart dest=/etc/init/etcd.conf

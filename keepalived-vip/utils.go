@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ var (
 	invalidIfaces = []string{"lo", "docker0", "flannel.1", "cbr0"}
 	nsSvcLbRegex  = regexp.MustCompile(`(.*)/(.*):(.*)|(.*)/(.*)`)
 	vethRegex     = regexp.MustCompile(`^veth.*`)
-	lvsRegex      = regexp.MustCompile(`NAT`)
+	lvsRegex      = regexp.MustCompile(`NAT|DR`)
 )
 
 type nodeInfo struct {
@@ -242,8 +242,9 @@ func loadIPVModule() error {
 // changeSysctl changes the required network setting in /proc to get
 // keepalived working in the local system.
 func changeSysctl() error {
+	sys := sysctl.New()
 	for k, v := range sysctlAdjustments {
-		if err := sysctl.SetSysctl(k, v); err != nil {
+		if err := sys.SetSysctl(k, v); err != nil {
 			return err
 		}
 	}

@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/client/cache"
 	"k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/pkg/controller/framework"
 	"k8s.io/kubernetes/pkg/fields"
 	utildbus "k8s.io/kubernetes/pkg/util/dbus"
 	"k8s.io/kubernetes/pkg/util/exec"
@@ -47,7 +46,7 @@ const (
 )
 
 var (
-	keyFunc = framework.DeletionHandlingMetaNamespaceKeyFunc
+	keyFunc = cache.DeletionHandlingMetaNamespaceKeyFunc
 )
 
 type service struct {
@@ -106,8 +105,8 @@ func (c vipByNameIPPort) Less(i, j int) bool {
 // services from LVS throgh ipvsadmin.
 type ipvsControllerController struct {
 	client            *unversioned.Client
-	epController      *framework.Controller
-	svcController     *framework.Controller
+	epController      *cache.Controller
+	svcController     *cache.Controller
 	svcLister         cache.StoreToServiceLister
 	epLister          cache.StoreToEndpointsLister
 	reloadRateLimiter flowcontrol.RateLimiter
@@ -172,6 +171,22 @@ func (ipvsc *ipvsControllerController) getServices(cfgMap *api.ConfigMap) []vip 
 	// k -> IP to use
 	// v -> <namespace>/<service name>:<lvs method>
 	for externalIP, nsSvcLvs := range cfgMap.Data {
+		if nsSvcLvs == "" {
+			// if target is empty string we will not forward to any service but
+			// instead just configure the IP on the machine and let it up to
+			// another Pod or daemon to bind to the IP address
+			svcs = append(svcs, vip{
+				Name:      "",
+				IP:        externalIP,
+				Port:      0,
+				LVSMethod: "VIP",
+				Backends:  nil,
+				Protocol:  "TCP",
+			})
+			glog.V(2).Infof("Adding VIP only service: %v", externalIP)
+			continue
+		}
+
 		ns, svc, lvsm, err := parseNsSvcLVS(nsSvcLvs)
 		if err != nil {
 			glog.Warningf("%v", err)
@@ -179,7 +194,7 @@ func (ipvsc *ipvsControllerController) getServices(cfgMap *api.ConfigMap) []vip 
 		}
 
 		nsSvc := fmt.Sprintf("%v/%v", ns, svc)
-		svcObj, svcExists, err := ipvsc.svcLister.Store.GetByKey(nsSvc)
+		svcObj, svcExists, err := ipvsc.svcLister.Indexer.GetByKey(nsSvc)
 		if err != nil {
 			glog.Warningf("error getting service %v: %v", nsSvc, err)
 			continue
@@ -285,7 +300,7 @@ func (ipvsc *ipvsControllerController) Stop() error {
 }
 
 // newIPVSController creates a new controller from the given config.
-func newIPVSController(kubeClient *unversioned.Client, namespace string, useUnicast bool, configMapName string) *ipvsControllerController {
+func newIPVSController(kubeClient *unversioned.Client, namespace string, useUnicast bool, configMapName string, vrid int) *ipvsControllerController {
 	ipvsc := ipvsControllerController{
 		client:            kubeClient,
 		reloadRateLimiter: flowcontrol.NewTokenBucketRateLimiter(reloadQPS, int(reloadQPS)),
@@ -312,6 +327,10 @@ func newIPVSController(kubeClient *unversioned.Client, namespace string, useUnic
 		glog.Fatalf("Error getting local IP from nodes in the cluster: %v", err)
 	}
 
+	if vrid < 0 || vrid > 255 {
+		glog.Fatalf("Error using VRID %d, only values between 0 and 255 are allowed.", vrid)
+	}
+
 	neighbors := getNodeNeighbors(nodeInfo, clusterNodes)
 
 	execer := exec.New()
@@ -327,6 +346,7 @@ func newIPVSController(kubeClient *unversioned.Client, namespace string, useUnic
 		priority:   getNodePriority(nodeInfo.ip, clusterNodes),
 		useUnicast: useUnicast,
 		ipt:        iptInterface,
+		vrid:       vrid,
 	}
 
 	ipvsc.syncQueue = NewTaskQueue(ipvsc.sync)
@@ -336,7 +356,7 @@ func newIPVSController(kubeClient *unversioned.Client, namespace string, useUnic
 		glog.Fatalf("Error loading keepalived template: %v", err)
 	}
 
-	eventHandlers := framework.ResourceEventHandlerFuncs{
+	eventHandlers := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			ipvsc.syncQueue.enqueue(obj)
 		},
@@ -350,12 +370,15 @@ func newIPVSController(kubeClient *unversioned.Client, namespace string, useUnic
 		},
 	}
 
-	ipvsc.svcLister.Store, ipvsc.svcController = framework.NewInformer(
+	ipvsc.svcLister.Indexer, ipvsc.svcController = cache.NewIndexerInformer(
 		cache.NewListWatchFromClient(
 			ipvsc.client, "services", namespace, fields.Everything()),
-		&api.Service{}, resyncPeriod, eventHandlers)
+		&api.Service{},
+		resyncPeriod,
+		eventHandlers,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
-	ipvsc.epLister.Store, ipvsc.epController = framework.NewInformer(
+	ipvsc.epLister.Store, ipvsc.epController = cache.NewInformer(
 		cache.NewListWatchFromClient(
 			ipvsc.client, "endpoints", namespace, fields.Everything()),
 		&api.Endpoints{}, resyncPeriod, eventHandlers)

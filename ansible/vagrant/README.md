@@ -11,10 +11,11 @@ git clone https://github.com/kubernetes/contrib.git
 
 [Install Vagrant](https://www.vagrantup.com/downloads.html) if it's not currently installed on your system.
 
-You will need a functioning [vagrant provider](https://www.vagrantup.com/docs/providers/). Currently supported providers are openstack, libvirt, and virtualbox. Vagrant comes with VirtualBox support by default. No matter what provider you choose, you need to install the OpenStack Vagrant plugin:
+You will need a functioning [vagrant provider](https://www.vagrantup.com/docs/providers/). Currently supported providers are openstack, libvirt, and virtualbox. Vagrant comes with VirtualBox support by default. No matter what provider you choose, you need to install the OpenStack and aws Vagrant plugins:
 
 ```
 vagrant plugin install vagrant-openstack-provider --plugin-version ">= 0.6.1"
+vagrant plugin install vagrant-aws --plugin-version ">= 0.7.2"
 ```
 
 Vagrant uses Ansible to automate the Kubernetes deployment. Install Ansible (Mac OSX example):
@@ -88,6 +89,8 @@ Supported images:
 * `centos7` (default) - CentOS 7 supported on OpenStack, VirtualBox, Libvirt providers.
 * `coreos` - [CoreOS](https://coreos.com/) supported on VirtualBox provider.
 * `fedora` - supported at least on Libvirt provider
+* `ubuntu14` - supported on Libvirt provider, based on Ubuntu-14.04
+* `ubuntu16` - supported on Libvirt provider, based on Ubuntu-16.04
 
 ### Start your cluster
 
@@ -103,19 +106,19 @@ Vagrant up should complete with a successful Ansible playbook run:
 ....
 
 PLAY RECAP *********************************************************************
-kube-master                : ok=266  changed=78   unreachable=0    failed=0
+kube-master-1              : ok=266  changed=78   unreachable=0    failed=0
 kube-node-1                : ok=129  changed=39   unreachable=0    failed=0
 kube-node-2                : ok=128  changed=39   unreachable=0    failed=0
 ```
 
 Login to the Kubernetes master:
 ```
-vagrant ssh kube-master
+vagrant ssh kube-master-1
 ```
 
 Verify the Kuberenetes cluster is up:
 ```
-[vagrant@kube-master ~]$ kubectl cluster-info
+[vagrant@kube-master-1 ~]$ kubectl cluster-info
 Kubernetes master is running at http://localhost:8080
 Elasticsearch is running at http://localhost:8080/api/v1/proxy/namespaces/kube-system/services/elasticsearch-logging
 Heapster is running at http://localhost:8080/api/v1/proxy/namespaces/kube-system/services/heapster
@@ -124,7 +127,7 @@ KubeDNS is running at http://localhost:8080/api/v1/proxy/namespaces/kube-system/
 Grafana is running at http://localhost:8080/api/v1/proxy/namespaces/kube-system/services/monitoring-grafana
 InfluxDB is running at http://localhost:8080/api/v1/proxy/namespaces/kube-system/services/monitoring-influxdb
 
-[vagrant@kube-master ~]$ kubectl get nodes
+[vagrant@kube-master-1 ~]$ kubectl get nodes
 NAME          LABELS                               STATUS    AGE
 kube-node-1   kubernetes.io/hostname=kube-node-1   Ready     34m
 kube-node-2   kubernetes.io/hostname=kube-node-2   Ready     34m
@@ -187,8 +190,8 @@ After provisioning a cluster vith Vagrant you can run ansible in this directory 
 For example:
 
 ```
-$ ansible -m setup kube-master
-kube-master | SUCCESS => {
+$ ansible -m setup kube-master-1
+kube-master-1 | SUCCESS => {
     "ansible_facts": {
         "ansible_all_ipv4_addresses": [
             "172.28.128.21",

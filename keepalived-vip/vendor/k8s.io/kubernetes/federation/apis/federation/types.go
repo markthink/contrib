@@ -75,7 +75,7 @@ type ClusterCondition struct {
 type ClusterStatus struct {
 	// Conditions is an array of current cluster conditions.
 	Conditions []ClusterCondition `json:"conditions,omitempty"`
-	// Zones is the list of avaliability zones in which the nodes of the cluster exist, e.g. 'us-east1-a'.
+	// Zones is the list of availability zones in which the nodes of the cluster exist, e.g. 'us-east1-a'.
 	// These will always be in the same region.
 	Zones []string `json:"zones,omitempty"`
 	// Region is the name of the region in which all of the nodes in the cluster exist.  e.g. 'us-east1'.
@@ -107,4 +107,33 @@ type ClusterList struct {
 
 	// List of Cluster objects.
 	Items []Cluster `json:"items"`
+}
+
+// Temporary/alpha structures to support custom replica assignments within FederatedReplicaSet.
+
+// A set of preferences that can be added to federated version of ReplicaSet as a json-serialized annotation.
+// The preferences allow the user to express in which culsters he wants to put his replicas within the
+// mentiond FederatedReplicaSet.
+type FederatedReplicaSetPreferences struct {
+	// If set to true then already scheduled and running replicas may be moved to other clusters to
+	// in order to bring cluster replicasets towards a desired state. Otherwise, if set to false,
+	// up and running replicas will not be moved.
+	Rebalance bool `json:"rebalance,omitempty"`
+
+	// A mapping between cluser names and preferences regarding local replicasets in these clusters.
+	// "*" (if provided) applies to all clusters if an explicit mapping is not provided. If there is no
+	// "*" that clusters without explicit preferences should not have any replicas scheduled.
+	Clusters map[string]ClusterReplicaSetPreferences `json:"clusters,omitempty"`
+}
+
+// Preferences regarding number of replicas assigned to a cluster replicaset within a federated replicaset.
+type ClusterReplicaSetPreferences struct {
+	// Minimum number of replicas that should be assigned to this Local ReplicaSet. 0 by default.
+	MinReplicas int64 `json:"minReplicas,omitempty"`
+
+	// Maximum number of replicas that should be assigned to this Local ReplicaSet. Unbounded if no value provided (default).
+	MaxReplicas *int64 `json:"maxReplicas,omitempty"`
+
+	// A number expressing the preference to put an additional replica to this LocalReplicaSet. 0 by default.
+	Weight int64
 }
